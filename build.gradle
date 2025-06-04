@@ -13,23 +13,33 @@ java {
 
 repositories {
     mavenCentral()
+
+    // Add this to get RL4J and other DL4J modules
+    maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
+    maven { url "https://oss.sonatype.org/content/repositories/releases" }
 }
+
+
+def dl4jVersion = "1.0.0-beta7"
 
 dependencies {
     implementation files('C:/robocode/libs/robocode.jar')
 
-    // DL4J core
-    implementation 'org.deeplearning4j:deeplearning4j-core:1.0.0-M2.1'
-    implementation 'org.nd4j:nd4j-native-platform:1.0.0-M2.1'
+    implementation "org.deeplearning4j:deeplearning4j-core:$dl4jVersion"
+    implementation "org.nd4j:nd4j-native-platform:$dl4jVersion"
 
-    // Lombok runtime classes needed by DL4J
-    implementation 'org.projectlombok:lombok:1.18.32'
+    // ✅ RL4J (for reinforcement learning)
+    implementation "org.deeplearning4j:rl4j-core:$dl4jVersion"
 
-    // Add SLF4J Simple logger (1.7.x works best with DL4J M2.1)
+    // Logging
     implementation 'org.slf4j:slf4j-simple:1.7.30'
 
+    // JAXB for Java 9+
     implementation 'javax.xml.bind:jaxb-api:2.3.1'
     implementation 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
+
+    // Lombok runtime classes
+    implementation 'org.projectlombok:lombok:1.18.32'
 }
 
 
