@@ -2,50 +2,39 @@ plugins {
     id 'java'
 }
 
-group = 'myrobot'
+group = 'mybot'
 version = '1.0'
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(16)
-    }
-}
+sourceCompatibility = '16'
+targetCompatibility = '16'
 
 repositories {
     mavenCentral()
-
-    // Add this to get RL4J and other DL4J modules
-    maven { url "https://oss.sonatype.org/content/repositories/snapshots" }
     maven { url "https://oss.sonatype.org/content/repositories/releases" }
 }
 
-
-def dl4jVersion = "1.0.0-beta7"
-
 dependencies {
+    // Robocode engine
     implementation files('C:/robocode/libs/robocode.jar')
 
-    implementation "org.deeplearning4j:deeplearning4j-core:$dl4jVersion"
-    implementation "org.nd4j:nd4j-native-platform:$dl4jVersion"
-
-    // ✅ RL4J (for reinforcement learning)
-    implementation "org.deeplearning4j:rl4j-core:$dl4jVersion"
+    // Deeplearning4J + RL4J
+    implementation "org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1"
+    implementation "org.nd4j:nd4j-native-platform:1.0.0-M1.1"
+    implementation "org.deeplearning4j:rl4j-core:1.0.0-M1.1"
 
     // Logging
     implementation 'org.slf4j:slf4j-simple:1.7.30'
 
-    // JAXB for Java 9+
+    // JAXB for Java 16+
     implementation 'javax.xml.bind:jaxb-api:2.3.1'
     implementation 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
 
-    // Lombok runtime classes
+    // Lombok (required at runtime by DL4J classes)
     implementation 'org.projectlombok:lombok:1.18.32'
 }
 
-
 jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
