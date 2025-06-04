@@ -30,7 +30,7 @@ public class MyRobot extends AdvancedRobot {
         System.out.println("Created a simple DL4J neural network config");
 
         while (true) {
-            ahead(100);
+//            ahead(100);
             turnGunRight(360);
             execute();
         }

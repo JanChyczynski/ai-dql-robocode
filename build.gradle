@@ -18,12 +18,20 @@ repositories {
 dependencies {
     implementation files('C:/robocode/libs/robocode.jar')
 
-    // DL4J Core and dependencies (CPU backend)
+    // DL4J core
     implementation 'org.deeplearning4j:deeplearning4j-core:1.0.0-M2.1'
     implementation 'org.nd4j:nd4j-native-platform:1.0.0-M2.1'
 
-    // You can add more DL4J dependencies if needed
+    // Lombok runtime classes needed by DL4J
+    implementation 'org.projectlombok:lombok:1.18.32'
+
+    // Add SLF4J Simple logger (1.7.x works best with DL4J M2.1)
+    implementation 'org.slf4j:slf4j-simple:1.7.30'
+
+    implementation 'javax.xml.bind:jaxb-api:2.3.1'
+    implementation 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
 }
+
 
 jar {
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
