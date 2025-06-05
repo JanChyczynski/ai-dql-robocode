@@ -1,18 +1,25 @@
 package mybot;
 
+import org.deeplearning4j.rl4j.learning.configuration.QLearningConfiguration;
+import org.deeplearning4j.rl4j.mdp.MDP;
+import org.deeplearning4j.rl4j.network.configuration.DQNDenseNetworkConfiguration;
+import org.deeplearning4j.rl4j.space.DiscreteSpace;
 import robocode.*;
 import org.deeplearning4j.rl4j.learning.sync.qlearning.QLearning;
 import org.deeplearning4j.rl4j.learning.sync.qlearning.discrete.QLearningDiscreteDense;
 import org.deeplearning4j.rl4j.network.dqn.DQNFactoryStdDense;
-import org.deeplearning4j.rl4j.environment.Environment;
+import org.deeplearning4j.rl4j.observation.Observation;
 import org.nd4j.linalg.learning.config.Adam;
+import org.deeplearning4j.rl4j.environment.Environment;
+import org.deeplearning4j.rl4j.space.Encodable;
+
 
 import java.awt.Color;
 
 public class MyRobot extends AdvancedRobot {
 
     private GunEnvironment env;
-    private QLearningDiscreteDense<double[]> learner;
+    private QLearningDiscreteDense<Observation> learner;
 
     @Override
     public void run() {
@@ -21,33 +28,35 @@ public class MyRobot extends AdvancedRobot {
         setRadarColor(Color.YELLOW);
         setScanColor(Color.RED);
 
-        // Environment wraps Robocode APIs
         env = new GunEnvironment(this);
 
-        // Network config
-        DQNFactoryStdDense.Configuration netConf = DQNFactoryStdDense.Configuration.builder()
+        DQNDenseNetworkConfiguration netConf = DQNDenseNetworkConfiguration.builder()
                 .l2(0.001)
                 .updater(new Adam(0.001))
                 .numHiddenNodes(32)
-                .numLayer(2)
+                .numLayers(2)
                 .build();
 
-        // Q-learning configuration
-        QLearning.QLConfiguration rlConf = new QLearning.QLConfiguration(
-                123,    // seed
-                200,    // max steps per episode
-                5000,   // max episodes
-                200,    // replay buffer
-                32,     // batch size
-                500,    // target update
-                0.99,   // gamma
-                1.0,    // epsilon start
-                0.1,    // epsilon min
-                1000    // epsilon decay
-        );
+        QLearningConfiguration rlConf = QLearningConfiguration.builder()
+                .seed(123L)
+                .maxEpochStep(200)            // max steps per episode
+                .maxStep(5000)                // max episodes or max steps in total
+                .expRepMaxSize(200)        // replay buffer size
+                .batchSize(32)                // batch size
+                .targetDqnUpdateFreq(500)   // target network update frequency
+                .updateStart(10)              // number of no-op warmup steps before training starts
+                .gamma(0.99)                  // discount factor
+                .epsilonNbStep(1000)          // number of steps for epsilon decay
+                .minEpsilon(0.1)              // final epsilon
+                .build();
 
-        // Agent
-        learner = new QLearningDiscreteDense<>(env, netConf, rlConf);
+        Environment<Integer> gunEnvironment = new GunEnvironment(this);
+
+        MDP<GunObservation, Integer, DiscreteSpace> mdp = new GunMDP(this);
+
+        QLearningDiscreteDense<GunObservation> learner =
+                new QLearningDiscreteDense<GunObservation>(mdp, netConf, rlConf);
+
 
         out.println("Starting RL4J training loop...");
 
@@ -57,15 +66,24 @@ public class MyRobot extends AdvancedRobot {
         }
     }
 
+    @Override
     public void onScannedRobot(ScannedRobotEvent e) {
-        env.setScannedRobot(e);
+        if (env != null) {
+            env.setScannedRobot(e);
+        }
     }
 
+    @Override
     public void onBulletHit(BulletHitEvent e) {
-        env.reward(1.0);
+        if (env != null) {
+            env.reward(1.0);
+        }
     }
 
+    @Override
     public void onBulletMissed(BulletMissedEvent e) {
-        env.reward(-0.5);
+        if (env != null) {
+            env.reward(-0.5);
+        }
     }
 }
