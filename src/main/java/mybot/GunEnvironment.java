@@ -7,8 +7,7 @@ import org.deeplearning4j.rl4j.environment.StepResult;
 import org.deeplearning4j.rl4j.space.ArrayObservationSpace;
 import org.deeplearning4j.rl4j.space.DiscreteSpace;
 import org.deeplearning4j.rl4j.space.ObservationSpace;
-//import org.nd4j.linalg.api.ndarray.INDArray;
-//import org.nd4j.linalg.factory.Nd4j;
+
 import robocode.*;
 
 import java.util.HashMap;
@@ -69,15 +68,24 @@ public class GunEnvironment implements Environment<Integer> {
 
     @Override
     public StepResult step(Integer action) {
-        if (action == 0) robot.turnGunLeft(10);
-        else if (action == 2) robot.turnGunRight(10);
+        // Apply the gun movement action
+        if (action == 0) {
+            robot.turnGunLeft(10);
+        } else if (action == 2) {
+            robot.turnGunRight(10);
+        }
 
-        if (currentEnemy != null) {
+        // If no enemy detected, scan by rotating the radar
+        if (currentEnemy == null) {
+            robot.setTurnRadarRight(45); // Rotate radar to search for enemies
+        } else {
+            // Fire if enemy is detected
             robot.fire(1);
         }
 
         robot.execute();
 
+        // Get the new observation
         StepResult result = new StepResult(getObservationAsMap(), reward, episodeDone);
         reward = 0.0;
         return result;

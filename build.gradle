@@ -18,8 +18,19 @@ dependencies {
     implementation files('C:/robocode/libs/robocode.jar')
 
     // Deeplearning4J + RL4J
-    implementation "org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1"
-    implementation "org.nd4j:nd4j-native-platform:1.0.0-M1.1"
+    implementation("org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1") {
+        exclude group: 'org.bytedeco', module: 'javacv'
+        exclude group: 'org.bytedeco', module: 'javacv-platform'
+    }
+    implementation("org.nd4j:nd4j-native-platform:1.0.0-M1.1") {
+        exclude group: 'org.nd4j', module: 'nd4j-android'
+        exclude group: 'org.nd4j', module: 'nd4j-native-android'
+        exclude group: 'org.bytedeco', module: 'javacv'
+        exclude group: 'org.bytedeco', module: 'javacv-platform'
+        exclude group: 'org.bytedeco', module: 'opencv-platform'
+    }
+
+
     implementation "org.deeplearning4j:rl4j-core:1.0.0-M1.1"
 
     // Logging

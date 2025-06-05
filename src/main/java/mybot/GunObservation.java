@@ -4,7 +4,6 @@ import org.deeplearning4j.rl4j.space.Encodable;
 import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 
-import java.util.Map;
 
 public class GunObservation implements Encodable {
     private final double bearing;
