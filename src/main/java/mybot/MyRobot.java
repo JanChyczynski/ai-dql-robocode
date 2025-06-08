@@ -10,6 +10,8 @@ import org.deeplearning4j.rl4j.observation.Observation;
 import org.nd4j.linalg.learning.config.Adam;
 import org.deeplearning4j.rl4j.environment.Environment;
 
+import java.io.File;
+
 
 //import java.awt.Color;
 
@@ -20,6 +22,8 @@ public class MyRobot extends AdvancedRobot {
 
     @Override
     public void run() {
+        System.load(new File("C:\\robocode\\libs\\native\\jniopenblas_nolapack.dll").getAbsolutePath());
+
         out.println("Run starting...");
 
         env = new GunEnvironment(this);

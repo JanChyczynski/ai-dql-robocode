@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
 group = 'mybot'
@@ -14,41 +15,101 @@ repositories {
 }
 
 dependencies {
-    // Robocode engine
     implementation files('C:/robocode/libs/robocode.jar')
 
-    // Deeplearning4J + RL4J
     implementation("org.deeplearning4j:deeplearning4j-core:1.0.0-M1.1") {
         exclude group: 'org.bytedeco', module: 'javacv'
         exclude group: 'org.bytedeco', module: 'javacv-platform'
     }
+
     implementation("org.nd4j:nd4j-native-platform:1.0.0-M1.1") {
         exclude group: 'org.nd4j', module: 'nd4j-android'
         exclude group: 'org.nd4j', module: 'nd4j-native-android'
-        exclude group: 'org.bytedeco', module: 'javacv'
-        exclude group: 'org.bytedeco', module: 'javacv-platform'
-        exclude group: 'org.bytedeco', module: 'opencv-platform'
     }
 
-
     implementation "org.deeplearning4j:rl4j-core:1.0.0-M1.1"
-
-    // Logging
     implementation 'org.slf4j:slf4j-simple:1.7.30'
-
-    // JAXB for Java 16+
     implementation 'javax.xml.bind:jaxb-api:2.3.1'
     implementation 'org.glassfish.jaxb:jaxb-runtime:2.3.1'
-
-    // Lombok (required at runtime by DL4J classes)
     implementation 'org.projectlombok:lombok:1.18.32'
 }
 
-jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+shadowJar {
+    mergeServiceFiles()
+
+    // Include platform-specific native libraries (DLLs, etc.)
     from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+        project.configurations.runtimeClasspath.findAll {
+            it.name.endsWith("jar") && (
+                    it.name.contains("windows") ||
+                            it.name.contains("linux") ||
+                            it.name.contains("macosx") ||
+                            it.name.contains("platform")
+            )
+        }.collect { zipTree(it) }
     }
 
-    from(sourceSets.main.resources)
+    // Optional: Clean up meta conflicts
+    exclude 'META-INF/*.SF'
+    exclude 'META-INF/*.DSA'
+    exclude 'META-INF/*.RSA'
+}
+
+
+import java.util.zip.ZipFile
+
+def robocodeLibsDir = file("C:/robocode/libs")
+def robocodeNativeDir = file("C:/robocode/native")
+
+// Task 1: Copy all runtime JARs to Robocode libs folder
+task copyRuntimeJars(type: Copy) {
+    from configurations.runtimeClasspath
+    into robocodeLibsDir
+    include '*.jar'
+}
+
+// Task 2: Extract native .dll files from runtime JARs
+import java.util.zip.ZipFile
+
+task extractNativeDlls {
+    def nativeOutputDir = file("C:/robocode/libs/native")
+    inputs.files configurations.runtimeClasspath
+    outputs.dir nativeOutputDir
+
+    doLast {
+        nativeOutputDir.mkdirs()
+
+        configurations.runtimeClasspath.each { File jarFile ->
+            if (jarFile.name.endsWith(".jar")) {
+                ZipFile zipFile
+                try {
+                    zipFile = new ZipFile(jarFile)
+                } catch (Exception ignored) {
+                    // Skip corrupted or non-ZIP JARs
+                    return
+                }
+
+                zipFile.entries().each { entry ->
+                    // Only extract 64-bit Windows native DLLs
+                    if (!entry.isDirectory() && entry.name.contains("windows-x86_64") && entry.name.endsWith(".dll")) {
+                        def outFile = new File(nativeOutputDir, entry.name.tokenize('/').last())
+                        outFile.withOutputStream { os ->
+                            os << zipFile.getInputStream(entry)
+                        }
+                        println "Extracted ${entry.name} to ${outFile}"
+                    }
+                }
+                zipFile.close()
+            }
+        }
+    }
+}
+
+
+
+// Task to do both steps
+task prepareRobocodeEnv {
+    dependsOn extractNativeDlls
+    group = "robocode"
+    description = "Copies JARs and extracts native DLLs to Robocode folders"
 }
