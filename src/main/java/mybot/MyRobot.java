@@ -1,75 +1,123 @@
 package mybot;
 
 import robocode.*;
-
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.io.ObjectOutputStream;
+import java.io.*;
 import java.util.Arrays;
 
-//import static jdk.javadoc.internal.tool.Main.execute;
-
 public class MyRobot extends AdvancedRobot {
+
+    // Fields to track stats
+    private double totalReward = 0;
+    private double totalDamage = 0;
+    private int hits = 0;
+    private int misses = 0;
+    private final String LOG_FILE = "training_log.csv";
+
+
+    // Track damage in onBulletHit
+    public void onBulletHit(BulletHitEvent e) {
+        hits++;
+        totalDamage += e.getBullet().getPower() * 4; // Robocode scoring formula
+    }
+
+    // Track misses
+    public void onBulletMissed(BulletMissedEvent e) {
+        misses++;
+    }
+
+    // Log after each round ends
+    public void onWin(WinEvent e) {
+        logRoundStats(1);
+        saveQTable();
+        resetStats();
+    }
+
+    public void onDeath(DeathEvent e) {
+        logRoundStats(0);
+        saveQTable();
+        resetStats();
+    }
+
+    private void logRoundStats(int win) {
+        int totalShots = hits + misses;
+        double accuracy = (totalShots > 0) ? ((double) hits / totalShots) : 0.0;
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(getDataFile(LOG_FILE), true))) {
+            writer.printf("%.2f,%.2f,%.4f,%d%n", totalReward, totalDamage, accuracy, win);
+        } catch (IOException e) {
+            out.println("Failed to write log: " + e.getMessage());
+        }
+    }
+
+    private void resetStats() {
+        totalReward = 0;
+        totalDamage = 0;
+        hits = 0;
+        misses = 0;
+    }
     private static final int NUM_DISTANCE_BUCKETS = 5;
-    private static final int NUM_BEARING_BUCKETS = 8;
-    private static final int NUM_ACTIONS = 5;
+    private static final int NUM_ANGLE_BUCKETS = 9;  // Angle difference between gun and enemy
+    private static final int NUM_ACTIONS = 3; // 0: turn left, 1: turn right, 2: fire
 
     private static final double ALPHA = 0.1;
     private static final double GAMMA = 0.9;
     private static final double EPSILON = 0.1;
 
-    private double[][][] qTable = new double[NUM_DISTANCE_BUCKETS][NUM_BEARING_BUCKETS][NUM_ACTIONS];
-    private int prevDistance, prevBearing, prevAction;
+    private double[][][] qTable = new double[NUM_DISTANCE_BUCKETS][NUM_ANGLE_BUCKETS][NUM_ACTIONS];
+    private int prevDist, prevAngle, prevAction;
     private boolean hasPrevState = false;
-    private final String Q_TABLE_FILE = "qtable.data";
+    private final String Q_TABLE_FILE = "qtable_gun.data";
 
-    @Override
     public void run() {
         loadQTable();
         setAdjustGunForRobotTurn(true);
         setAdjustRadarForGunTurn(true);
 
         while (true) {
-            turnRadarRight(360);
+            turnRadarRight(360); // spin to scan for enemies
         }
     }
 
-    @Override
     public void onScannedRobot(ScannedRobotEvent e) {
-        int dist = (int) Math.min(NUM_DISTANCE_BUCKETS - 1, e.getDistance() / (1000 / NUM_DISTANCE_BUCKETS));
-        int bearing = (int) Math.floor((e.getBearing() + 180) / (360.0 / NUM_BEARING_BUCKETS));
+        int distBucket = (int) Math.min(NUM_DISTANCE_BUCKETS - 1, e.getDistance() / (1000 / NUM_DISTANCE_BUCKETS));
+        double angleToEnemy = normalRelativeAngleDegrees(getHeading() + e.getBearing() - getGunHeading());
+        int angleBucket = (int) Math.floor((angleToEnemy + 180) / (360.0 / NUM_ANGLE_BUCKETS));
+        angleBucket = Math.max(0, Math.min(NUM_ANGLE_BUCKETS - 1, angleBucket));
 
-        int action = chooseAction(dist, bearing);
-        performAction(action);
+        int action = chooseAction(distBucket, angleBucket);
+        performAction(action, angleToEnemy);
 
+        // Reward for hitting or not
         double reward = 0;
-        if (e.getEnergy() < 20) reward += 1;
-        if (getEnergy() < 20) reward -= 1;
+        if (getGunHeat() > 0 && getEnergy() < 100) reward -= 0.1; // punish for useless firing
+        if (e.getEnergy() < 10) reward += 1.0; // reward when enemy is weak
 
         if (hasPrevState) {
-            double oldQ = qTable[prevDistance][prevBearing][prevAction];
-            double maxQ = Arrays.stream(qTable[dist][bearing]).max().orElse(0);
-            qTable[prevDistance][prevBearing][prevAction] = oldQ + ALPHA * (reward + GAMMA * maxQ - oldQ);
+            double oldQ = qTable[prevDist][prevAngle][prevAction];
+            double maxQ = Arrays.stream(qTable[distBucket][angleBucket]).max().orElse(0);
+            qTable[prevDist][prevAngle][prevAction] = oldQ + ALPHA * (reward + GAMMA * maxQ - oldQ);
         }
+        // Add to onScannedRobot
+        totalReward += reward;
 
-        prevDistance = dist;
-        prevBearing = bearing;
+        prevDist = distBucket;
+        prevAngle = angleBucket;
         prevAction = action;
         hasPrevState = true;
 
-        scan();
+        scan(); // continue scanning
+
     }
 
-    private int chooseAction(int dist, int bearing) {
+    private int chooseAction(int dist, int angle) {
         if (Math.random() < EPSILON) {
             return (int)(Math.random() * NUM_ACTIONS);
         }
-        return maxQIndex(dist, bearing);
+        return maxQIndex(dist, angle);
     }
 
-    private int maxQIndex(int dist, int bearing) {
-        double[] q = qTable[dist][bearing];
+    private int maxQIndex(int dist, int angle) {
+        double[] q = qTable[dist][angle];
         int best = 0;
         for (int i = 1; i < q.length; i++) {
             if (q[i] > q[best]) best = i;
@@ -77,33 +125,22 @@ public class MyRobot extends AdvancedRobot {
         return best;
     }
 
-    private void performAction(int action) {
+    private void performAction(int action, double angleToEnemy) {
         switch (action) {
-            case 0: setAhead(100); break;
-            case 1: setBack(100); break;
-            case 2: setTurnRight(45); break;
-            case 3: setTurnLeft(45); break;
-            case 4: setFire(1.5); break;
+            case 0: setTurnGunLeft(Math.min(10, Math.abs(angleToEnemy))); break;
+            case 1: setTurnGunRight(Math.min(10, Math.abs(angleToEnemy))); break;
+            case 2:
+                if (Math.abs(angleToEnemy) < 5) {
+                    setFire(2); // fire only if roughly aimed
+                }
+                break;
         }
         execute();
-    }
-
-    @Override
-    public void onWin(WinEvent e) {
-        out.println("Victory! Saving Q-table...");
-        saveQTable();
-    }
-
-    @Override
-    public void onDeath(DeathEvent e) {
-        out.println("Defeated. Saving Q-table...");
-        saveQTable();
     }
 
     private void saveQTable() {
         try (ObjectOutputStream out = new ObjectOutputStream(new RobocodeFileOutputStream(getDataFile(Q_TABLE_FILE)))) {
             out.writeObject(qTable);
-            out.flush();
         } catch (IOException ex) {
             out.println("Failed to save Q-table: " + ex.getMessage());
         }
@@ -114,10 +151,16 @@ public class MyRobot extends AdvancedRobot {
             Object obj = in.readObject();
             if (obj instanceof double[][][]) {
                 qTable = (double[][][]) obj;
-                out.println("Loaded Q-table.");
+                out.println("Q-table loaded.");
             }
         } catch (IOException | ClassNotFoundException ex) {
             out.println("No existing Q-table found, starting fresh.");
         }
+    }
+
+    private double normalRelativeAngleDegrees(double angle) {
+        while (angle <= -180) angle += 360;
+        while (angle > 180) angle -= 360;
+        return angle;
     }
 }
