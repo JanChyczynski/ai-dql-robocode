@@ -11,50 +11,10 @@ public class MyRobot extends AdvancedRobot {
     private double totalDamage = 0;
     private int hits = 0;
     private int misses = 0;
-    private final String LOG_FILE = "training_log.csv";
+    private static String logFile;
+    private boolean logInitialized = false;
 
-
-    // Track damage in onBulletHit
-    public void onBulletHit(BulletHitEvent e) {
-        hits++;
-        totalDamage += e.getBullet().getPower() * 4; // Robocode scoring formula
-    }
-
-    // Track misses
-    public void onBulletMissed(BulletMissedEvent e) {
-        misses++;
-    }
-
-    // Log after each round ends
-    public void onWin(WinEvent e) {
-        logRoundStats(1);
-        saveQTable();
-        resetStats();
-    }
-
-    public void onDeath(DeathEvent e) {
-        logRoundStats(0);
-        saveQTable();
-        resetStats();
-    }
-
-    private void logRoundStats(int win) {
-        int totalShots = hits + misses;
-        double accuracy = (totalShots > 0) ? ((double) hits / totalShots) : 0.0;
-
-        try (PrintWriter writer = new PrintWriter(new FileWriter(getDataFile(LOG_FILE), true))) {
-            writer.printf("%.2f,%.2f,%.4f,%d%n", totalReward, totalDamage, accuracy, win);
-        } catch (IOException e) {
-            out.println("Failed to write log: " + e.getMessage());
-        }
-    }
-
-    private void resetStats() {
-        totalReward = 0;
-        totalDamage = 0;
-        hits = 0;
-        misses = 0;
-    }
+    private static final String TYPE_NAME = "stationaryV1";
     private static final int NUM_DISTANCE_BUCKETS = 5;
     private static final int NUM_ANGLE_BUCKETS = 9;  // Angle difference between gun and enemy
     private static final int NUM_ACTIONS = 3; // 0: turn left, 1: turn right, 2: fire
@@ -63,12 +23,18 @@ public class MyRobot extends AdvancedRobot {
     private static final double GAMMA = 0.9;
     private static final double EPSILON = 0.1;
 
+    private final String PARAMETERS = String.format("A%.2f_G%.2f_E%.2f_BD%d_BA%d",
+            ALPHA, GAMMA, EPSILON, NUM_DISTANCE_BUCKETS, NUM_ANGLE_BUCKETS);
+
+    private final String Q_TABLE_FILE = "qtable_gun.data";
+
     private double[][][] qTable = new double[NUM_DISTANCE_BUCKETS][NUM_ANGLE_BUCKETS][NUM_ACTIONS];
     private int prevDist, prevAngle, prevAction;
     private boolean hasPrevState = false;
-    private final String Q_TABLE_FILE = "qtable_gun.data";
 
     public void run() {
+        logFile = "unprocessed_" + TYPE_NAME + "_" + PARAMETERS + ".log";
+
         loadQTable();
         setAdjustGunForRobotTurn(true);
         setAdjustRadarForGunTurn(true);
@@ -87,7 +53,6 @@ public class MyRobot extends AdvancedRobot {
         int action = chooseAction(distBucket, angleBucket);
         performAction(action, angleToEnemy);
 
-        // Reward for hitting or not
         double reward = 0;
         if (getGunHeat() > 0 && getEnergy() < 100) reward -= 0.1; // punish for useless firing
         if (e.getEnergy() < 10) reward += 1.0; // reward when enemy is weak
@@ -97,7 +62,6 @@ public class MyRobot extends AdvancedRobot {
             double maxQ = Arrays.stream(qTable[distBucket][angleBucket]).max().orElse(0);
             qTable[prevDist][prevAngle][prevAction] = oldQ + ALPHA * (reward + GAMMA * maxQ - oldQ);
         }
-        // Add to onScannedRobot
         totalReward += reward;
 
         prevDist = distBucket;
@@ -106,7 +70,53 @@ public class MyRobot extends AdvancedRobot {
         hasPrevState = true;
 
         scan(); // continue scanning
+    }
 
+    public void onBulletHit(BulletHitEvent e) {
+        hits++;
+        totalDamage += e.getBullet().getPower() * 4;
+    }
+
+    public void onBulletMissed(BulletMissedEvent e) {
+        misses++;
+    }
+
+    public void onWin(WinEvent e) {
+        logRoundStats(1);
+        saveQTable();
+        resetStats();
+    }
+
+    public void onDeath(DeathEvent e) {
+        logRoundStats(0);
+        saveQTable();
+        resetStats();
+    }
+
+    private void logRoundStats(int win) {
+        int totalShots = hits + misses;
+        double accuracy = (totalShots > 0) ? ((double) hits / totalShots) : 0.0;
+
+        try {
+            File logDataFile = getDataFile(logFile);
+            boolean fileExists = logDataFile.exists();
+
+            try (PrintWriter writer = new PrintWriter(new FileWriter(logDataFile, true))) {
+                if (!fileExists) {
+                    writer.println("reward,damage,accuracy,win");
+                }
+                writer.printf("%.2f,%.2f,%.4f,%d%n", totalReward, totalDamage, accuracy, win);
+            }
+        } catch (IOException e) {
+            out.println("Failed to write log: " + e.getMessage());
+        }
+    }
+
+    private void resetStats() {
+        totalReward = 0;
+        totalDamage = 0;
+        hits = 0;
+        misses = 0;
     }
 
     private int chooseAction(int dist, int angle) {
@@ -131,7 +141,7 @@ public class MyRobot extends AdvancedRobot {
             case 1: setTurnGunRight(Math.min(10, Math.abs(angleToEnemy))); break;
             case 2:
                 if (Math.abs(angleToEnemy) < 5) {
-                    setFire(2); // fire only if roughly aimed
+                    setFire(2);
                 }
                 break;
         }
