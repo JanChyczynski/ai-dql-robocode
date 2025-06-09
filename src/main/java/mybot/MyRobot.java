@@ -12,16 +12,16 @@ public class MyRobot extends AdvancedRobot {
     private int hits = 0;
     private int misses = 0;
     private static String logFile;
-    private boolean logInitialized = false;
+    private static String headerWrittenFile;
 
     private static final String TYPE_NAME = "stationaryV1";
     private static final int NUM_DISTANCE_BUCKETS = 5;
     private static final int NUM_ANGLE_BUCKETS = 9;  // Angle difference between gun and enemy
     private static final int NUM_ACTIONS = 3; // 0: turn left, 1: turn right, 2: fire
 
-    private static final double ALPHA = 0.1;
-    private static final double GAMMA = 0.9;
-    private static final double EPSILON = 0.1;
+    private static final double ALPHA = 0.3;
+    private static final double GAMMA = 0.9999;
+    private static final double EPSILON = 0.5;
 
     private final String PARAMETERS = String.format("A%.2f_G%.2f_E%.2f_BD%d_BA%d",
             ALPHA, GAMMA, EPSILON, NUM_DISTANCE_BUCKETS, NUM_ANGLE_BUCKETS);
@@ -34,6 +34,7 @@ public class MyRobot extends AdvancedRobot {
 
     public void run() {
         logFile = "unprocessed_" + TYPE_NAME + "_" + PARAMETERS + ".log";
+        headerWrittenFile = logFile + ".header_written.tmp";
 
         loadQTable();
         setAdjustGunForRobotTurn(true);
@@ -99,11 +100,18 @@ public class MyRobot extends AdvancedRobot {
 
         try {
             File logDataFile = getDataFile(logFile);
-            boolean fileExists = logDataFile.exists();
+            File headerFile = getDataFile(headerWrittenFile);
 
             try (PrintWriter writer = new PrintWriter(new FileWriter(logDataFile, true))) {
-                if (!fileExists) {
+                if (!headerFile.exists()) {
                     writer.println("reward,damage,accuracy,win");
+                    try {
+                        if (headerFile.createNewFile()) {
+                            out.println("Header file created.");
+                        }
+                    } catch (IOException ex) {
+                        out.println("Failed to create header marker file: " + ex.getMessage());
+                    }
                 }
                 writer.printf("%.2f,%.2f,%.4f,%d%n", totalReward, totalDamage, accuracy, win);
             }
