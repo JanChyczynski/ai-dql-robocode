@@ -1,6 +1,8 @@
 package mybot;
 
 import robocode.*;
+
+import java.awt.*;
 import java.io.*;
 import java.util.Arrays;
 
@@ -32,16 +34,30 @@ public class MyRobot extends AdvancedRobot {
     private int prevDist, prevAngle, prevAction;
     private boolean hasPrevState = false;
 
+    private int tick = 0, lastUpdateTick = -1000;
+    private double prevExactBearing = 0;
+
     public void run() {
         logFile = "unprocessed_" + TYPE_NAME + "_" + PARAMETERS + ".log";
         headerWrittenFile = logFile + ".header_written.tmp";
+
+        setColors(Color.RED, Color.RED, Color.RED);
 
         loadQTable();
         setAdjustGunForRobotTurn(true);
         setAdjustRadarForGunTurn(true);
 
         while (true) {
-            turnRadarRight(360); // spin to scan for enemies
+            if (tick - lastUpdateTick < 4) {
+                followWithRadar();
+            } else {
+                if (tick - lastUpdateTick == 4)
+                    out.println("Enemy vision lost!");
+                setTurnRadarRight(12);
+            }
+
+            execute();
+            tick++;
         }
     }
 
@@ -70,8 +86,18 @@ public class MyRobot extends AdvancedRobot {
         prevAction = action;
         hasPrevState = true;
 
-        scan(); // continue scanning
+        // Radar following
+        prevExactBearing = e.getBearing();
+        lastUpdateTick = tick;
     }
+
+    private void followWithRadar() {
+        double radarOffset = (getHeading() + prevExactBearing - getRadarHeading() + 360) % 360;
+        if (radarOffset > 180)
+            radarOffset -= 360;
+        setTurnRadarRight(radarOffset);
+    }
+
 
     public void onBulletHit(BulletHitEvent e) {
         hits++;
