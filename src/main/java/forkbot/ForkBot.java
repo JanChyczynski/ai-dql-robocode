@@ -53,7 +53,6 @@ public class ForkBot extends AdvancedRobot {
     int sa_combi_inLUT_next = 0;
     String q_next = null;
     double q_next_double = 0;
-    int count = 0;
     int Qmax_action = 0;
     int[] actions_indices = new int[total_actions.length];
     double[] q_possible = new double[total_actions.length];
@@ -74,7 +73,7 @@ public class ForkBot extends AdvancedRobot {
     private double normalizedBearing;
 
     double cum_reward_while = 0;
-    static double[] cum_reward_array = new double[1000];
+    static double[] cum_reward_array = new double[40000];
     static int index1 = 0;
 
 
@@ -83,38 +82,39 @@ public class ForkBot extends AdvancedRobot {
     boolean greedy = true;
     //----------------------------------------------------//
 
+    boolean seenSinceLastCheck = false;
+
+
     public void run() {
-        if (count == 0) {
-            //For initializing text file in the first run use the three lines of code. once the text file is generated in \Rl_check comment this out
-            initialiseLUT();
-            saveLookUpTable();
-            //comment this
-            try {
-                loadLookUpTable();
-            } catch (IOException e) {
-                e.printStackTrace();
-
-            }
-        }
-        count += 1;
-
         setColors(null, new Color(192, 192, 192), new Color(192, 192, 192), Color.black, new Color(150, 0, 150));
         setBodyColor(new java.awt.Color(192, 192, 192, 100));
 
+        setAdjustGunForRobotTurn(true);
+
+        initialiseLUT();
+        // saveLookUpTable();
+        try {
+            loadLookUpTable();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         //noinspection InfiniteLoopStatement
         while (true) {
             if (explore) { //Explore event--------------------------------------------------//
-                saveLookUpTable();
+//                saveLookUpTable();
                 //load command
-                try {
-                    loadLookUpTable();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+//                try {
+//                    loadLookUpTable();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
                 //load command
                 //predict current state:
-                turnGunRight(360);
+                if (!seenSinceLastCheck)
+                    turnGunRight(360);
+                seenSinceLastCheck = false;
+
                 random_action = randInt(1, total_actions.length);
                 state_action_combi = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + random_action;
 
@@ -131,9 +131,11 @@ public class ForkBot extends AdvancedRobot {
                 //performing next state and scanning
                 my_energy_pres = robot_energy;
                 enemy_energy_pres = enemy_energy;
-                makeAction(random_action);
 
-                turnGunRight(360);
+                makeAction(random_action);
+                execute();
+                //turnGunRight(360);
+
                 my_energy_next = robot_energy;
                 enemy_energy_next = enemy_energy;
 
@@ -162,19 +164,21 @@ public class ForkBot extends AdvancedRobot {
              */
 
             if (greedy) {
-                saveLookUpTable();
-                //load command
-                try {
-                    loadLookUpTable();
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
+//                saveLookUpTable();
+//                //load command
+//                try {
+//                    loadLookUpTable();
+//                } catch (IOException e) {
+//                    e.printStackTrace();
+//                }
                 //load command
 
                 //predict current state:
-                turnGunRight(360);
-                // finding action that produces maximum Q value
+                if (!seenSinceLastCheck)
+                    turnGunRight(360);
+                seenSinceLastCheck = false;
 
+                // finding action that produces maximum Q value
                 for (int j = 1; j <= total_actions.length; j++) {
                     state_action_combi = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + j;
 
@@ -227,7 +231,9 @@ public class ForkBot extends AdvancedRobot {
                 enemy_energy_pres = enemy_energy;
 
                 makeAction(Qmax_action);
-                turnGunRight(360);
+                execute();
+
+                //turnGunRight(360);
 
                 my_energy_next = robot_energy;
                 enemy_energy_next = enemy_energy;
@@ -290,6 +296,10 @@ public class ForkBot extends AdvancedRobot {
         //absolute angle to enemy
         absbearing = absoluteBearing((float) getX(), (float) getY(), (float) enemyX, (float) enemyY);
         q_absbearing = quantize_angle(absbearing);
+
+        seenSinceLastCheck = true;
+        double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
+        setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing - getGunHeadingRadians()));
     }
 
 
@@ -408,16 +418,27 @@ public class ForkBot extends AdvancedRobot {
         System.out.println(getRoundNum());
         cum_reward_array[getRoundNum()] = cum_reward_while;
 
+
         for (int i = 0; i < cum_reward_array.length; i++) {
             System.out.println(cum_reward_array[i]);
             System.out.println();
         }
 
         index1 = index1 + 1;
+
+        if (getRoundNum() % 1000 == 0) {
+            for (int i = 0; i < cum_reward_array.length; i++) {
+                System.out.println(cum_reward_array[i]);
+                System.out.println();
+            }
+        }
+
         saveCumulative();
+        saveLookUpTable();
     }
 
     public void onBattleEnded(BattleEndedEvent e) {
+        saveLookUpTable();
         saveCumulative();
     }
 
@@ -514,6 +535,7 @@ public class ForkBot extends AdvancedRobot {
      */
 
     public void initialiseLUT() {
+        out.println("Initializing table");
         int[] total_states_actions = new int[8 * 6 * 4 * 4 * action.length];
         LUT = new String[total_states_actions.length][2];
         int z = 0;
@@ -533,6 +555,7 @@ public class ForkBot extends AdvancedRobot {
     }
 
     public void saveLookUpTable() {
+        out.println("Saving table");
         PrintStream w = null;
         try {
             w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTable.txt")));
@@ -563,6 +586,7 @@ public class ForkBot extends AdvancedRobot {
     }
 
     public void loadLookUpTable() throws IOException {
+        out.println("Loading table");
         BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTable.txt")));
         String line = reader.readLine();
         try {
