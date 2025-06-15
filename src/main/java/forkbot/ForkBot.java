@@ -77,10 +77,11 @@ public class ForkBot extends AdvancedRobot {
 //    private double totalReward = 0;
     private double totalDamage = 0;
     private double totalDamageTaken = 0;
+    private int wallHits = 0;
     private static String logFile;
     private static String headerWrittenFile;
 
-    private static final String TYPE_NAME = "orgV1";
+    private static final String TYPE_NAME = "orgV2";
     private final String PARAMETERS = String.format("A%.2f_G%.2f_E%.2f",
             alpha, gamma, 0.5);
 
@@ -342,6 +343,7 @@ public class ForkBot extends AdvancedRobot {
     // FWIK this turns away from a wall after hitting it
     public void onHitWall(HitWallEvent e) {
         reward -= 3.5;
+        wallHits += 1;
         double xPos = this.getX();
         double yPos = this.getY();
         double width = this.getBattleFieldWidth();
@@ -548,7 +550,7 @@ public class ForkBot extends AdvancedRobot {
 
             try (PrintWriter writer = new PrintWriter(new FileWriter(logDataFile, true))) {
                 if (!headerFile.exists()) {
-                    writer.println("reward,damage,damageTaken,win");
+                    writer.println("reward,damage,damageTaken,win,wallHits");
                     try {
                         if (headerFile.createNewFile()) {
                             out.println("Header file created.");
@@ -557,7 +559,7 @@ public class ForkBot extends AdvancedRobot {
                         out.println("Failed to create header marker file: " + ex.getMessage());
                     }
                 }
-                writer.printf("%.2f,%.2f,%.2f,%d%n", cum_reward_while, totalDamage, totalDamageTaken, win);
+                writer.printf("%.2f,%.2f,%.2f,%d,%d%n", cum_reward_while, totalDamage, totalDamageTaken, win, wallHits);
             }
         } catch (IOException e) {
             out.println("Failed to write log: " + e.getMessage());

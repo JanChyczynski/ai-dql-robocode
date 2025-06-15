@@ -21,7 +21,7 @@ def create_plots(df, plot_dir, subtitle):
     window = max(1, int(len(df) * 0.05))
     df_ma = df.rolling(window=window).mean()
 
-    metrics = ["reward", "damage", "damageTaken", "win"]
+    metrics = ["reward", "damage", "damageTaken", "win", "wallHits"]
 
     for metric in metrics:
         plt.figure()
@@ -66,7 +66,7 @@ def process_log():
         if "reward" not in first_line:
             content = f.read()
             f.seek(0)
-            f.write("reward,damage,damageTaken,win\n" + first_line + content)
+            f.write("reward,damage,damageTaken,win,wallHits\n" + first_line + content)
             print("Header added to log file.")
 
     df = pd.read_csv(log_file)
