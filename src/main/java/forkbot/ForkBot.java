@@ -105,11 +105,7 @@ public class ForkBot extends AdvancedRobot {
 
         initialiseLUT();
         // saveLookUpTable();
-        try {
-            loadLookUpTable();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+        loadLookUpTable();
 
         //noinspection InfiniteLoopStatement
         while (true) {
@@ -610,52 +606,50 @@ public class ForkBot extends AdvancedRobot {
 
     public void saveLookUpTable() {
         out.println("Saving table");
-        PrintStream w = null;
-        try {
-            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTable.txt")));
+        File lutFile = getDataFile("LookUpTable.txt");
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(lutFile))) {
             for (int i = 0; i < LUT.length; i++) {
-                w.println(LUT[i][0] + "    " + LUT[i][1]);
+                writer.println(LUT[i][0] + "    " + LUT[i][1]);
             }
         } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            w.flush();
-            w.close();
+            out.println("Failed to save LookUpTable: " + e.getMessage());
         }
     }
 
     public void saveCumulative() {
-        PrintStream w = null;
-        try {
-            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("cum.txt")));
+        File cumFile = getDataFile("cum.txt");
+
+        try (PrintWriter writer = new PrintWriter(new FileWriter(cumFile))) {
             for (int i = 0; i < cum_reward_array.length; i++) {
-                w.println(cum_reward_array[i]);
+                writer.println(cum_reward_array[i]);
             }
         } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            w.flush();
-            w.close();
+            out.println("Failed to save cumulative rewards: " + e.getMessage());
         }
     }
 
-    public void loadLookUpTable() throws IOException {
+    public void loadLookUpTable() {
         out.println("Loading table");
-        BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTable.txt")));
-        String line = reader.readLine();
-        try {
+        File lutFile = getDataFile("LookUpTable.txt");
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(lutFile))) {
+            String line;
             int zz = 0;
-            while (line != null) {
-                String splitLine[] = line.split("    ");
-                LUT[zz][0] = splitLine[0];
-                LUT[zz][1] = splitLine[1];
-                zz = zz + 1;
-                line = reader.readLine();
+
+            while ((line = reader.readLine()) != null) {
+                String[] splitLine = line.split("    ");
+                if (splitLine.length >= 2) {
+                    LUT[zz][0] = splitLine[0];
+                    LUT[zz][1] = splitLine[1];
+                } else {
+                    out.println("Invalid line format in LookUpTable: " + line);
+                }
+                zz++;
             }
         } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            reader.close();
+            out.println("Failed to load LookUpTable: " + e.getMessage());
         }
     }
+
 }
