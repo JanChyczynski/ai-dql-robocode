@@ -13,6 +13,10 @@ import robocode.*;
 import java.util.Random;
 
 public class ForkBot extends AdvancedRobot {
+    double cum_reward_while = 0;
+    static double[] cum_reward_array = new double[40000];
+    static int index1 = 0;
+
     static Random rand = new Random();
     final double alpha = 0.1;
     final double gamma = 0.9;
@@ -72,9 +76,6 @@ public class ForkBot extends AdvancedRobot {
     private double time;
     private double normalizedBearing;
 
-    double cum_reward_while = 0;
-    static double[] cum_reward_array = new double[40000];
-    static int index1 = 0;
 
 
     //-------------Explore or greedy----------------------//
@@ -419,21 +420,16 @@ public class ForkBot extends AdvancedRobot {
         cum_reward_array[getRoundNum()] = cum_reward_while;
 
 
-        for (int i = 0; i < cum_reward_array.length; i++) {
-            System.out.println(cum_reward_array[i]);
-            System.out.println();
-        }
 
         index1 = index1 + 1;
 
-        if (getRoundNum() % 1000 == 0) {
-            for (int i = 0; i < cum_reward_array.length; i++) {
-                System.out.println(cum_reward_array[i]);
-                System.out.println();
-            }
-        }
+//        if (getRoundNum() % 1000 == 0) {
+//            for (int i = 0; i < getRoundNum(); i++) {
+//                System.out.println(cum_reward_array[i]);
+//                System.out.println();
+//            }
+//        }
 
-        saveCumulative();
         saveLookUpTable();
     }
 
