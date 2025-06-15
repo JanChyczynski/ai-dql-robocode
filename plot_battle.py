@@ -7,7 +7,6 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 
 # CONSTANT: Path to Robocode working directory on Windows
-# WORKING_DIR = r"C:\\robocode\\robots\\.data\\mybot\\MyRobot.data"  # correct now
 WORKING_DIR = r"C:\\robocode\\robots\\forkbot\\ForkBot.data"  # correct now
 
 # === Helper Functions ===
@@ -50,13 +49,12 @@ def create_plots(df, plot_dir, subtitle):
     plt.close()
 
 # === Main Logic ===
-def process_log():
+def process_log(rename_after_processing):
     os.chdir(WORKING_DIR)
     log_files = glob.glob("unprocessed_*.log")
     if not log_files:
         print("No unprocessed log files found.")
         return
-    print("procesing")
 
     log_file = log_files[0]
 
@@ -84,9 +82,8 @@ def process_log():
     plot_dir = f"plots_{timestamp}_{type_name}_{parameters}"
     done_log = f"done_{timestamp}_{type_name}_{parameters}.log"
 
-    # Create plots and move the file
+    # Create plots
     create_plots(df, plot_dir, f"{timestamp}_{type_name}_{parameters}")
-    shutil.move(log_file, done_log)
 
     # Remove the header-written flag file
     header_tmp = log_file + ".header_written.tmp"
@@ -94,10 +91,19 @@ def process_log():
         os.remove(header_tmp)
         print(f"Removed header flag: {header_tmp}")
 
+    # Rename only if requested
+    if rename_after_processing:
+        shutil.move(log_file, done_log)
+        print(f"Renamed log to: {done_log}")
+    else:
+        print(f"Log file left as: {log_file}")
+
     print(f"Processed: {log_file}")
     print(f"Saved plots to: {plot_dir}")
-    print(f"Renamed log to: {done_log}")
 
 # === Script Entry ===
 if __name__ == "__main__":
-    process_log()
+    rename = False
+    if len(sys.argv) > 1 and sys.argv[1] == '1':
+        rename = True
+    process_log(rename)
