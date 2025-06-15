@@ -81,7 +81,7 @@ public class ForkBot extends AdvancedRobot {
     private static String logFile;
     private static String headerWrittenFile;
 
-    private static final String TYPE_NAME = "orgV2";
+    private static final String TYPE_NAME = "TweakV1";
     private final String PARAMETERS = String.format("A%.2f_G%.2f_E%.2f",
             alpha, gamma, 0.5);
 
@@ -108,6 +108,7 @@ public class ForkBot extends AdvancedRobot {
         loadLookUpTable();
 
         //noinspection InfiniteLoopStatement
+        boolean firstIteration = true;
         while (true) {
             if (explore) { //Explore event--------------------------------------------------//
 //                saveLookUpTable();
@@ -119,9 +120,10 @@ public class ForkBot extends AdvancedRobot {
 //                }
                 //load command
                 //predict current state:
-                if (!seenSinceLastCheck)
+                if (firstIteration) {
                     turnGunRight(360);
-                seenSinceLastCheck = false;
+                }
+                firstIteration = false;
 
                 random_action = randInt(1, total_actions.length);
                 state_action_combi = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + random_action;
@@ -182,7 +184,10 @@ public class ForkBot extends AdvancedRobot {
                 //load command
 
                 //predict current state:
-                turnGunRight(360);
+                if (firstIteration) {
+                    turnGunRight(360);
+                }
+                firstIteration = false;
 //                if (!seenSinceLastCheck)
 //                    turnGunRight(360);
 //                seenSinceLastCheck = false;
