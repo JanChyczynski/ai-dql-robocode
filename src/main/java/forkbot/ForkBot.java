@@ -185,9 +185,10 @@ public class ForkBot extends AdvancedRobot {
                 //load command
 
                 //predict current state:
-                if (!seenSinceLastCheck)
-                    turnGunRight(360);
-                seenSinceLastCheck = false;
+                turnGunRight(360);
+//                if (!seenSinceLastCheck)
+//                    turnGunRight(360);
+//                seenSinceLastCheck = false;
 
                 // finding action that produces maximum Q value
                 for (int j = 1; j <= total_actions.length; j++) {
@@ -242,9 +243,9 @@ public class ForkBot extends AdvancedRobot {
                 enemy_energy_pres = enemy_energy;
 
                 makeAction(Qmax_action);
-                execute();
+//                execute();
 
-                //turnGunRight(360);
+                turnGunRight(360);
 
                 my_energy_next = robot_energy;
                 enemy_energy_next = enemy_energy;
@@ -308,9 +309,9 @@ public class ForkBot extends AdvancedRobot {
         absbearing = absoluteBearing((float) getX(), (float) getY(), (float) enemyX, (float) enemyY);
         q_absbearing = quantize_angle(absbearing);
 
-        seenSinceLastCheck = true;
-        double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
-        setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing - getGunHeadingRadians()));
+//        seenSinceLastCheck = true;
+//        double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
+//        setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing - getGunHeadingRadians()));
     }
 
 
