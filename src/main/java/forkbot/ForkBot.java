@@ -3,22 +3,9 @@ package forkbot; //change it into your package name
 import static robocode.util.Utils.normalRelativeAngleDegrees;
 
 import java.awt.Color;
-import java.io.BufferedReader;
-import java.io.FileReader;
-import java.io.IOException;
-import java.io.PrintStream;
+import java.io.*;
 
-import robocode.AdvancedRobot;
-import robocode.BattleEndedEvent;
-import robocode.BulletHitEvent;
-import robocode.HitByBulletEvent;
-import robocode.HitRobotEvent;
-import robocode.HitWallEvent;
-
-import robocode.RobocodeFileOutputStream;
-import robocode.RobotStatus;
-import robocode.RoundEndedEvent;
-import robocode.ScannedRobotEvent;
+import robocode.*;
 
 import java.util.Random;
 
@@ -87,6 +74,15 @@ public class ForkBot extends AdvancedRobot {
     static double[] cum_reward_array = new double[1000];
     static int index1 = 0;
 
+    // Fields to track stats
+//    private double totalReward = 0;
+    private double totalDamage = 0;
+    private static String logFile;
+    private static String headerWrittenFile;
+
+    private static final String TYPE_NAME = "orgV1";
+    private final String PARAMETERS = String.format("A%.2f_G%.2f_E%.2f",
+            alpha, gamma, 0.5);
 
 
     //-------------Explore or greedy----------------------//
@@ -95,6 +91,9 @@ public class ForkBot extends AdvancedRobot {
     //----------------------------------------------------//
 
     public void run() {
+        logFile = "unprocessed_" + TYPE_NAME + "_" + PARAMETERS + ".log";
+        headerWrittenFile = logFile + ".header_written.tmp";
+
         if (count == 0) {
             //For initializing text file in the first run use the three lines of code. once the text file is generated in \Rl_check comment this out
             initialiseLUT();
@@ -344,6 +343,7 @@ public class ForkBot extends AdvancedRobot {
 
     public void onBulletHit(BulletHitEvent event) {
         reward += 3;
+        totalDamage += event.getBullet().getPower() * 4;
     } //one of our bullet hits enemy robot
 
     public void onHitByBullet(HitByBulletEvent event) {
@@ -467,6 +467,41 @@ public class ForkBot extends AdvancedRobot {
     public void onBattleEnded(BattleEndedEvent e) {
         saveCumulative();
     }
+
+    public void onWin(WinEvent e) {
+        logRoundStats(1);
+    }
+
+    public void onDeath(DeathEvent e) {
+        logRoundStats(0);
+    }
+
+    private void logRoundStats(int win) {
+//        int totalShots = hits + misses;
+//        double accuracy = (totalShots > 0) ? ((double) hits / totalShots) : 0.0;
+
+        try {
+            File logDataFile = getDataFile(logFile);
+            File headerFile = getDataFile(headerWrittenFile);
+
+            try (PrintWriter writer = new PrintWriter(new FileWriter(logDataFile, true))) {
+                if (!headerFile.exists()) {
+                    writer.println("reward,damage,accuracy,win");
+                    try {
+                        if (headerFile.createNewFile()) {
+                            out.println("Header file created.");
+                        }
+                    } catch (IOException ex) {
+                        out.println("Failed to create header marker file: " + ex.getMessage());
+                    }
+                }
+                writer.printf("%.2f,%.2f,%.4f,%d%n", cum_reward_while, totalDamage, 0.0, win);
+            }
+        } catch (IOException e) {
+            out.println("Failed to write log: " + e.getMessage());
+        }
+    }
+
 
     public static int randInt(int min, int max) {
         return rand.nextInt((max - min) + 1) + min;
