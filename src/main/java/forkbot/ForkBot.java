@@ -23,6 +23,7 @@ import robocode.ScannedRobotEvent;
 import java.util.Random;
 
 public class ForkBot extends AdvancedRobot {
+    static Random rand = new Random();
     final double alpha = 0.1;
     final double gamma = 0.9;
     double distance = 0;
@@ -43,11 +44,6 @@ public class ForkBot extends AdvancedRobot {
     int qenemy_y = 0;
     private RobotStatus robotStatus;
     int qdistancetoenemy = 0;
-
-    //-------------Explore or greedy----------------------//
-    boolean explore = false;
-    boolean greedy = true;
-    //----------------------------------------------------//
 
     double absbearing = 0;
     int q_absbearing = 0;
@@ -91,51 +87,21 @@ public class ForkBot extends AdvancedRobot {
     static double[] cum_reward_array = new double[1000];
     static int index1 = 0;
 
-    public void onRoundEnded(RoundEndedEvent e) {
-        System.out.println("cumulative reward of one full battle is ");
-        System.out.println(cum_reward_while);
-        System.out.println("index number ");
-        System.out.println(getRoundNum());
-        cum_reward_array[getRoundNum()] = cum_reward_while;
-
-        for (int i = 0; i < cum_reward_array.length; i++) {
-            System.out.println(cum_reward_array[i]);
-            System.out.println();
-        }
-
-        index1 = index1 + 1;
-        save1();
-    }
 
 
-    public void save1() {
-        PrintStream w = null;
-        try {
-            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("cum.txt")));
-            for (int i = 0; i < cum_reward_array.length; i++) {
-                w.println(cum_reward_array[i]);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-        } finally {
-            w.flush();
-            w.close();
-        }
-    }
-
-
-    public void onBattleEnded(BattleEndedEvent e) {
-        save1();
-    }
+    //-------------Explore or greedy----------------------//
+    boolean explore = true;
+    boolean greedy = true;
+    //----------------------------------------------------//
 
     public void run() {
         if (count == 0) {
             //For initializing text file in the first run use the three lines of code. once the text file is generated in \Rl_check comment this out
             initialiseLUT();
-            save();
+            saveLookUpTable();
             //comment this
             try {
-                load();
+                loadLookUpTable();
             } catch (IOException e) {
                 e.printStackTrace();
 
@@ -150,10 +116,10 @@ public class ForkBot extends AdvancedRobot {
         //noinspection InfiniteLoopStatement
         while (true) {
             if (explore) { //Explore event--------------------------------------------------//
-                save();
+                saveLookUpTable();
                 //load command
                 try {
-                    load();
+                    loadLookUpTable();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -176,14 +142,13 @@ public class ForkBot extends AdvancedRobot {
                 //performing next state and scanning
                 my_energy_pres = robot_energy;
                 enemy_energy_pres = enemy_energy;
-                rl_action(random_action);
+                makeAction(random_action);
 
                 turnGunRight(360);
                 my_energy_next = robot_energy;
                 enemy_energy_next = enemy_energy;
-                reward1 = 0;
-                reward1 = (my_energy_next - my_energy_pres) - (enemy_energy_next - enemy_energy_pres);
 
+                reward1 = (my_energy_next - my_energy_pres) - (enemy_energy_next - enemy_energy_pres);
 
                 state_action_combi_next = qrl_x + "" + qrl_y + "" + qdistancetoenemy + "" + q_absbearing + "" + random_action;
                 for (int i = 0; i < LUT.length; i++) {
@@ -206,10 +171,10 @@ public class ForkBot extends AdvancedRobot {
 //Greedy Moves//
 
             if (greedy) {
-                save();
+                saveLookUpTable();
                 //load command
                 try {
-                    load();
+                    loadLookUpTable();
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -272,14 +237,13 @@ public class ForkBot extends AdvancedRobot {
                 my_energy_pres = robot_energy;
                 enemy_energy_pres = enemy_energy;
 
-                rl_action(Qmax_action);
+                makeAction(Qmax_action);
 
 
                 turnGunRight(360);
 
                 my_energy_next = robot_energy;
                 enemy_energy_next = enemy_energy;
-                reward1 = 0;
                 reward1 = (my_energy_next - my_energy_pres) - (enemy_energy_next - enemy_energy_pres);
 
                 state_action_combi_next = qrl_x + "" + qrl_y + "" + qdistancetoenemy + "" + q_absbearing + "" + Qmax_action;
@@ -438,6 +402,9 @@ public class ForkBot extends AdvancedRobot {
     }
 
     private int quantize_position(double rl_x2) {
+        int rl = (int) rl_x2;
+        rl = Math.max(Math.min(rl, 800), 0);
+
         if ((rl_x2 > 0) && (rl_x2 <= 100)) {
             qrl_x = 1;
         } else if ((rl_x2 > 100) && (rl_x2 <= 200)) {
@@ -456,55 +423,53 @@ public class ForkBot extends AdvancedRobot {
             qrl_x = 8;
         }
         return qrl_x;
-
     }
 
-    public void rl_action(int x) {
+    public void makeAction(int x) {
         switch (x) {
-            case 1: //action 1 of the RL robot
-                int moveDirection = +1;  //moves in anticlockwise direction
-                if (getVelocity == 0)
-                    moveDirection *= 1;
-
-                // circle our enemy
+            case 1:
                 setTurnRight(getBearing + 90);
-                setAhead(150 * moveDirection);
+                setAhead(150);
                 break;
-            case 2: //action 2 of the RL robot
-                int moveDirection1 = -1;  //moves in clockwise direction
-                if (getVelocity == 0)
-                    moveDirection1 *= 1;
-
-                // circle our enemy
+            case 2:
                 setTurnRight(getBearing + 90);
-                setAhead(150 * moveDirection1);
+                setAhead(-150);
                 break;
-            case 3: //action 3 of the RL robot
-                turnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-                turnRight(getBearing - 25); // and see how much Tracker improves...
-                // (you'll have to make Tracker an AdvancedRobot)
+            case 3:
+                turnGunRight(gunTurnAmt);
+                turnRight(getBearing - 25);
                 ahead(150);
                 break;
-            case 4: //action 4 of the RL robot
-                turnGunRight(gunTurnAmt); // Try changing these to setTurnGunRight,
-                turnRight(getBearing - 25); // and see how much Tracker improves...
-                // (you'll have to make Tracker an AdvancedRobot)
+            case 4:
+                turnGunRight(gunTurnAmt);
+                turnRight(getBearing - 25);
                 back(150);
                 break;
-
-
         }
     }
 
+    public void onRoundEnded(RoundEndedEvent e) {
+        System.out.println("cumulative reward of one full battle is ");
+        System.out.println(cum_reward_while);
+        System.out.println("index number ");
+        System.out.println(getRoundNum());
+        cum_reward_array[getRoundNum()] = cum_reward_while;
+
+        for (int i = 0; i < cum_reward_array.length; i++) {
+            System.out.println(cum_reward_array[i]);
+            System.out.println();
+        }
+
+        index1 = index1 + 1;
+        saveCumulative();
+    }
+
+    public void onBattleEnded(BattleEndedEvent e) {
+        saveCumulative();
+    }
+
     public static int randInt(int min, int max) {
-        // Usually this can be a field rather than a method variable
-        Random rand = new Random();
-
-        // nextInt is normally exclusive of the top value,
-        // so add 1 to make it inclusive
-        int randomNum = rand.nextInt((max - min) + 1) + min;
-
-        return randomNum;
+        return rand.nextInt((max - min) + 1) + min;
     }
 
     public void initialiseLUT() {
@@ -524,10 +489,9 @@ public class ForkBot extends AdvancedRobot {
                 }
             }
         }
-
     }
 
-    public void save() {
+    public void saveLookUpTable() {
         PrintStream w = null;
         try {
             w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTable.txt")));
@@ -542,7 +506,22 @@ public class ForkBot extends AdvancedRobot {
         }
     }
 
-    public void load() throws IOException {
+    public void saveCumulative() {
+        PrintStream w = null;
+        try {
+            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("cum.txt")));
+            for (int i = 0; i < cum_reward_array.length; i++) {
+                w.println(cum_reward_array[i]);
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            w.flush();
+            w.close();
+        }
+    }
+
+    public void loadLookUpTable() throws IOException {
         BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTable.txt")));
         String line = reader.readLine();
         try {
@@ -573,6 +552,7 @@ public class ForkBot extends AdvancedRobot {
         return index;
     }
 
+    // FWIK this turns away from a wall after hitting it
     public void onHitWall(HitWallEvent e) {
         reward -= 3.5;
         double xPos = this.getX();
@@ -662,6 +642,5 @@ public class ForkBot extends AdvancedRobot {
             }
             ahead(150);
         }
-
     }
 }
