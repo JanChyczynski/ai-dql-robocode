@@ -76,6 +76,7 @@ public class ForkBot extends AdvancedRobot {
     // Fields to track stats
 //    private double totalReward = 0;
     private double totalDamage = 0;
+    private double totalDamageTaken = 0;
     private static String logFile;
     private static String headerWrittenFile;
 
@@ -321,12 +322,19 @@ public class ForkBot extends AdvancedRobot {
         reward -= 2;
     }
 
+    public double powerToDamage(double power) {
+//        4 * power, plus 2 * (power-1) if power > 1
+        return 4 * power + ((power > 1) ? 2 * (power-1) : 0);
+    }
+
+
     public void onBulletHit(BulletHitEvent event) {
         reward += 3;
-        totalDamage += event.getBullet().getPower() * 4;
+        totalDamage += powerToDamage(event.getBullet().getPower());
     } //one of our bullet hits enemy robot
 
     public void onHitByBullet(HitByBulletEvent event) {
+        totalDamageTaken += powerToDamage(event.getBullet().getPower());
         reward -= 3;
     }
 
@@ -422,6 +430,7 @@ public class ForkBot extends AdvancedRobot {
         }
     }
 
+    @Override
     public void onRoundEnded(RoundEndedEvent e) {
         System.out.println("cumulative reward of one full battle is ");
         System.out.println(cum_reward_while);
@@ -519,25 +528,6 @@ public class ForkBot extends AdvancedRobot {
         }
     }
 
-    public void onRoundEnded(RoundEndedEvent e) {
-        System.out.println("cumulative reward of one full battle is ");
-        System.out.println(cum_reward_while);
-        System.out.println("index number ");
-        System.out.println(getRoundNum());
-        cum_reward_array[getRoundNum()] = cum_reward_while;
-
-        for (int i = 0; i < cum_reward_array.length; i++) {
-            System.out.println(cum_reward_array[i]);
-            System.out.println();
-        }
-
-        index1 = index1 + 1;
-        saveCumulative();
-    }
-
-    public void onBattleEnded(BattleEndedEvent e) {
-        saveCumulative();
-    }
 
     public void onWin(WinEvent e) {
         logRoundStats(1);
@@ -557,7 +547,7 @@ public class ForkBot extends AdvancedRobot {
 
             try (PrintWriter writer = new PrintWriter(new FileWriter(logDataFile, true))) {
                 if (!headerFile.exists()) {
-                    writer.println("reward,damage,accuracy,win");
+                    writer.println("reward,damage,damageTaken,win");
                     try {
                         if (headerFile.createNewFile()) {
                             out.println("Header file created.");
@@ -566,7 +556,7 @@ public class ForkBot extends AdvancedRobot {
                         out.println("Failed to create header marker file: " + ex.getMessage());
                     }
                 }
-                writer.printf("%.2f,%.2f,%.4f,%d%n", cum_reward_while, totalDamage, 0.0, win);
+                writer.printf("%.2f,%.2f,%.2f,%d%n", cum_reward_while, totalDamage, totalDamageTaken, win);
             }
         } catch (IOException e) {
             out.println("Failed to write log: " + e.getMessage());
