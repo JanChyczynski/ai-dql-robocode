@@ -31,10 +31,8 @@ public class ForkBot extends AdvancedRobot {
     //quantized parameters
     int qrl_x = 0;
     int qrl_y = 0;
-    int qenemy_x = 0;
-    int qenemy_y = 0;
     private RobotStatus robotStatus;
-    int qdistancetoenemy = 0;
+    int qheading = 0;
 
     double absbearing = 0;
     int q_absbearing = 0;
@@ -45,6 +43,10 @@ public class ForkBot extends AdvancedRobot {
     String state_action_combi_greedy = null;
     double robot_energy = 0;
     int sa_combi_inLUT = 0;
+
+    int qenemy_x = 0;
+    int qenemy_y = 0;
+
 
     //Run command-Robocode
     String q_present = null;
@@ -58,12 +60,8 @@ public class ForkBot extends AdvancedRobot {
     int[] actions_indices = new int[total_actions.length];
     double[] q_possible = new double[total_actions.length];
     int Qmax_actual_action = 0;
-    double enemy_energy = 0;
-    double reward1 = 0;
     double my_energy_pres = 0;
-    double enemy_energy_pres = 0;
     double my_energy_next = 0;
-    double enemy_energy_next = 0;
     double gunTurnTowardEnemyNeeded;
 
     private double enemyHeadingRadians;
@@ -112,23 +110,17 @@ public class ForkBot extends AdvancedRobot {
 
         //noinspection InfiniteLoopStatement
         while (true) {
-            if (explore) { //Explore event--------------------------------------------------//
-//                saveLookUpTable();
-                //load command
-//                try {
-//                    loadLookUpTable();
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-                //load command
-                //predict current state:
+            qheading = quantize_angle(getHeading());
+            qrl_x = quantize_position(getX());
+            qrl_y = quantize_position(getY());
+
+            if (explore) {
                 if (!seenSinceLastCheck)
                     turnGunRight(360);
                 seenSinceLastCheck = false;
 
                 random_action = randInt(1, total_actions.length);
-                state_action_combi = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + random_action;
-
+                state_action_combi = "" + qrl_x + qrl_y + qheading + q_absbearing + random_action;
                 for (int i = 0; i < LUT.length; i++) {
                     if (LUT[i][0].equals(state_action_combi)) {
                         sa_combi_inLUT = i;
@@ -137,22 +129,18 @@ public class ForkBot extends AdvancedRobot {
                 }
                 q_present = LUT[sa_combi_inLUT][1];
                 q_present_double = Double.parseDouble(q_present);
-                reward = 0;
 
                 //performing next state and scanning
                 my_energy_pres = robot_energy;
-                enemy_energy_pres = enemy_energy;
 
                 makeAction(random_action);
                 execute();
                 //turnGunRight(360);
 
                 my_energy_next = robot_energy;
-                enemy_energy_next = enemy_energy;
+                reward = (my_energy_next - my_energy_pres);
 
-                reward1 = (my_energy_next - my_energy_pres) - (enemy_energy_next - enemy_energy_pres);
-
-                state_action_combi_next = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + random_action;
+                state_action_combi_next = "" + qrl_x + qrl_y + qheading + q_absbearing + random_action;
                 for (int i = 0; i < LUT.length; i++) {
                     if (LUT[i][0].equals(state_action_combi_next)) {
                         sa_combi_inLUT_next = i;
@@ -175,26 +163,13 @@ public class ForkBot extends AdvancedRobot {
              */
 
             if (greedy) {
-//                saveLookUpTable();
-//                //load command
-//                try {
-//                    loadLookUpTable();
-//                } catch (IOException e) {
-//                    e.printStackTrace();
-//                }
-                //load command
-
-                //predict current state:
-                turnGunRight(360);
-//                if (!seenSinceLastCheck)
-//                    turnGunRight(360);
-//                seenSinceLastCheck = false;
+                if (!seenSinceLastCheck)
+                    turnGunRight(360);
+                seenSinceLastCheck = false;
 
                 // finding action that produces maximum Q value
                 for (int j = 1; j <= total_actions.length; j++) {
-                    state_action_combi = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + j;
-
-                    // kurde nawet hashmapy nie umią
+                    state_action_combi = "" + qrl_x + qrl_y + qheading + q_absbearing + j;
                     for (int i = 0; i < LUT.length; i++) {
                         if (LUT[i][0].equals(state_action_combi)) {
                             actions_indices[j - 1] = i;
@@ -225,7 +200,7 @@ public class ForkBot extends AdvancedRobot {
                 }
 
                 //finding action that produces maximum q
-                state_action_combi_greedy = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + Qmax_action;
+                state_action_combi_greedy = "" + qrl_x + qrl_y + qheading + q_absbearing + Qmax_action;
 
                 for (int i = 0; i < LUT.length; i++) {
                     if (LUT[i][0].equals(state_action_combi_greedy)) {
@@ -236,22 +211,18 @@ public class ForkBot extends AdvancedRobot {
 
                 q_present = LUT[sa_combi_inLUT][1];
                 q_present_double = Double.parseDouble(q_present);
-                reward = 0;
 
                 //performing next state and scanning
                 my_energy_pres = robot_energy;
-                enemy_energy_pres = enemy_energy;
 
                 makeAction(Qmax_action);
-//                execute();
-
-                turnGunRight(360);
+                execute();
+                //turnGunRight(360);
 
                 my_energy_next = robot_energy;
-                enemy_energy_next = enemy_energy;
-                reward1 = (my_energy_next - my_energy_pres) - (enemy_energy_next - enemy_energy_pres);
+                reward = (my_energy_next - my_energy_pres);
 
-                state_action_combi_next = "" + qrl_x + qrl_y + qdistancetoenemy + q_absbearing + Qmax_action;
+                state_action_combi_next = "" + qrl_x + qrl_y + qheading + q_absbearing + Qmax_action;
                 for (int i = 0; i < LUT.length; i++) {
                     if (LUT[i][0].equals(state_action_combi_next)) {
                         sa_combi_inLUT_next = i;
@@ -265,6 +236,10 @@ public class ForkBot extends AdvancedRobot {
                 q_present_double = q_present_double + alpha * (reward + gamma * q_next_double - q_present_double);
                 LUT[sa_combi_inLUT][1] = Double.toString(q_present_double);
                 cum_reward_while += reward;
+            }
+
+            if (reward != 0) {
+                out.println(reward);
             }
         }
     }
@@ -280,9 +255,9 @@ public class ForkBot extends AdvancedRobot {
         normalizedBearing = normalizeBearing(enemyBearing + 75); // ????
 
         robot_energy = getEnergy();
-        enemy_energy = e.getEnergy();
         distance = e.getDistance();
-        qdistancetoenemy = quantize_distance(distance);
+
+        int qdistancetoenemy = quantizeDistance(distance);
 
         if (qdistancetoenemy == 1) {
             fire(3);
@@ -294,24 +269,19 @@ public class ForkBot extends AdvancedRobot {
             fire(1);
         }
 
-        qrl_x = quantize_position(getX());
-        qrl_y = quantize_position(getY());
-
         //Calculating Enemy X & Y:
         double angleToEnemy = e.getBearing();
         double angle = Math.toRadians((getHeading() + angleToEnemy % 360));
         double enemyX = (getX() + Math.sin(angle) * e.getDistance());
         double enemyY = (getY() + Math.cos(angle) * e.getDistance());
-        qenemy_x = quantize_position(enemyX); //enemy x-position
-        qenemy_y = quantize_position(enemyY); //enemy y-position
 
         //absolute angle to enemy
         absbearing = absoluteBearing((float) getX(), (float) getY(), (float) enemyX, (float) enemyY);
         q_absbearing = quantize_angle(absbearing);
 
-//        seenSinceLastCheck = true;
-//        double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
-//        setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing - getGunHeadingRadians()));
+        seenSinceLastCheck = true;
+        double absoluteBearing = getHeadingRadians() + e.getBearingRadians();
+        setTurnGunRightRadians(robocode.util.Utils.normalRelativeAngle(absoluteBearing - getGunHeadingRadians()));
     }
 
 
@@ -443,12 +413,12 @@ public class ForkBot extends AdvancedRobot {
 
         index1 = index1 + 1;
 
-//        if (getRoundNum() % 1000 == 0) {
-//            for (int i = 0; i < getRoundNum(); i++) {
-//                System.out.println(cum_reward_array[i]);
-//                System.out.println();
-//            }
-//        }
+        if (getRoundNum() % 1000 == 0) {
+            for (int i = 0; i < getRoundNum(); i++) {
+                out.println(cum_reward_array[i]);
+                out.println();
+            }
+        }
 
         saveLookUpTable();
     }
@@ -474,10 +444,9 @@ public class ForkBot extends AdvancedRobot {
         return q_absbearing;
     }
 
-    private int quantize_distance(double distance2) {
+    private int quantizeDistance(double distance2) {
         int d = (int) Math.max(Math.min(distance2, 1000), 0);
-        qdistancetoenemy = d / 250 + 1;
-        return qdistancetoenemy;
+        return d / 250 + 1;
     }
 
     double absoluteBearing(float x1, float y1, float x2, float y2) {
@@ -610,9 +579,11 @@ public class ForkBot extends AdvancedRobot {
         out.println("Saving table");
         PrintStream w = null;
         try {
-            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTable.txt")));
+            w = new PrintStream(new RobocodeFileOutputStream(getDataFile("LookUpTableX.txt")));
             for (int i = 0; i < LUT.length; i++) {
                 w.println(LUT[i][0] + "    " + LUT[i][1]);
+                if (i % 100 == 0)
+                    out.println(LUT[i][0]);
             }
         } catch (IOException e) {
             e.printStackTrace();
@@ -639,7 +610,7 @@ public class ForkBot extends AdvancedRobot {
 
     public void loadLookUpTable() throws IOException {
         out.println("Loading table");
-        BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTable.txt")));
+        BufferedReader reader = new BufferedReader(new FileReader(getDataFile("LookUpTableX.txt")));
         String line = reader.readLine();
         try {
             int zz = 0;
